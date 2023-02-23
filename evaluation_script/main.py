@@ -1,4 +1,42 @@
 import random
+import numpy as np
+import json
+import os
+from bleu import Bleu
+from f1 import F1
+from utils import is_japanese_sentence, normalize_answer
+from typing import Dict, Any
+
+ANNOTATION_BASE_DIR = "annotations"
+SUBMISSION_BASE_DIR = "submissions"
+
+# compute f1 score
+def compute_f1(a_gold: Dict[Any, str], a_pred: Dict[Any, str]):
+    gts = {}
+    res = {}
+    for key in a_gold:
+        answer = a_gold[key]
+        gts[key] = normalize_answer(a_gold[key], is_japanese_sentence(answer))
+        res[key] = normalize_answer(a_pred[key], is_japanese_sentence(answer))
+    
+    f1 = F1()
+    score = f1.compute_score(gts, res)
+
+    return score
+
+# compute avg. BLEU score
+def compute_avg_bleu(a_gold, a_pred):
+    gts = {}
+    res = {}
+    for key in a_gold:
+        answer = a_gold[key]
+        gts[key] = [" ".join(normalize_answer(a_gold[key], is_japanese_sentence(answer)))]
+        res[key] = [" ".join(normalize_answer(a_pred[key], is_japanese_sentence(answer)))]
+
+    bleu = Bleu()
+    scores, _ = bleu.compute_score(gts, res)
+
+    return np.array(scores).mean()
 
 
 def evaluate(test_annotation_file, user_submission_file, phase_codename, **kwargs):
@@ -39,43 +77,37 @@ def evaluate(test_annotation_file, user_submission_file, phase_codename, **kwarg
             'submitted_at': u'2017-03-20T19:22:03.880652Z'
         }
     """
+
+    with open(os.path.join(ANNOTATION_BASE_DIR, test_annotation_file)) as f:
+        ground_truth = json.load(f)
+        
+    with open(os.path.join(SUBMISSION_BASE_DIR, user_submission_file)) as f:
+        results = json.load(f)
+
+    f1 = compute_f1(ground_truth, results)
+    bleu = compute_avg_bleu(ground_truth, results)
+
     output = {}
-    if phase_codename == "dev":
-        print("Evaluating for Dev Phase")
-        output["result"] = [
-            {
-                "train_split": {
-                    "Metric1": random.randint(0, 99),
-                    "Metric2": random.randint(0, 99),
-                    "Metric3": random.randint(0, 99),
-                    "Total": random.randint(0, 99),
-                }
+    if phase_codename == "public_test":
+        print("Evaluating for Public Test Phase")
+        output["result"] = {
+            "public_test_split": {
+                "Avg. BLEU": bleu,
+                "F1": f1
             }
-        ]
+        }
         # To display the results in the result file
-        output["submission_result"] = output["result"][0]["train_split"]
-        print("Completed evaluation for Dev Phase")
-    elif phase_codename == "test":
-        print("Evaluating for Test Phase")
-        output["result"] = [
-            {
-                "train_split": {
-                    "Metric1": random.randint(0, 99),
-                    "Metric2": random.randint(0, 99),
-                    "Metric3": random.randint(0, 99),
-                    "Total": random.randint(0, 99),
-                }
-            },
-            {
-                "test_split": {
-                    "Metric1": random.randint(0, 99),
-                    "Metric2": random.randint(0, 99),
-                    "Metric3": random.randint(0, 99),
-                    "Total": random.randint(0, 99),
-                }
-            },
-        ]
+        output["submission_result"] = output["result"]["public_test_split"]
+        print("Completed evaluation for Public Test Phase")
+    elif phase_codename == "private_test":
+        print("Evaluating for Private Test Phase")
+        output["result"] = {
+            "private_test_split": {
+                "Avg. BLEU": bleu,
+                "F1": f1
+            }
+        }
         # To display the results in the result file
-        output["submission_result"] = output["result"][0]
-        print("Completed evaluation for Test Phase")
+        output["submission_result"] = output["result"]["private_test_split"]
+        print("Completed evaluation for Private Test Phase")
     return output
