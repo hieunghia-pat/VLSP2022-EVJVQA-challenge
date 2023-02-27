@@ -1,14 +1,9 @@
-import random
 import numpy as np
 import json
-import os
 from bleu import Bleu
 from f1 import F1
 from utils import is_japanese_sentence, normalize_answer
 from typing import Dict, Any
-
-ANNOTATION_BASE_DIR = "annotations"
-SUBMISSION_BASE_DIR = "submissions"
 
 # compute f1 score
 def compute_f1(a_gold: Dict[Any, str], a_pred: Dict[Any, str]):
@@ -78,10 +73,10 @@ def evaluate(test_annotation_file, user_submission_file, phase_codename, **kwarg
         }
     """
 
-    with open(os.path.join(ANNOTATION_BASE_DIR, test_annotation_file)) as f:
+    with open(test_annotation_file) as f:
         ground_truth = json.load(f)
         
-    with open(os.path.join(SUBMISSION_BASE_DIR, user_submission_file)) as f:
+    with open(user_submission_file) as f:
         results = json.load(f)
 
     f1 = compute_f1(ground_truth, results)
